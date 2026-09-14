@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Bookmark,
@@ -28,7 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { hotModels, hotPapers, media, risingRepos, topics, trends } from "@/lib/seed-data";
-import type { TrendCategory } from "@/lib/types";
+import type { TrendCategory, TrendItem } from "@/lib/types";
 
 const navItems = [
   { label: "Today", icon: LayoutDashboard },
@@ -118,11 +118,32 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [saved, setSaved] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const filteredTrends = useMemo(() => trends.filter((trend) => {
+  const [trendItems, setTrendItems] = useState<TrendItem[]>(trends);
+  const [dataSource, setDataSource] = useState<"seed" | "api">("seed");
+
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+    if (!apiBase) return;
+    const controller = new AbortController();
+
+    fetch(`${apiBase}/trends`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Trend API unavailable")))
+      .then((payload: { items?: TrendItem[] }) => {
+        if (payload.items?.length) {
+          setTrendItems(payload.items);
+          setDataSource("api");
+        }
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, []);
+
+  const filteredTrends = useMemo(() => trendItems.filter((trend) => {
     const categoryMatch = selectedCategory === "All" || trend.category === selectedCategory;
     const queryMatch = !query || `${trend.title} ${trend.summary} ${trend.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
     return categoryMatch && queryMatch;
-  }), [query, selectedCategory]);
+  }), [query, selectedCategory, trendItems]);
 
   const toggleSave = (id: string) => setSaved((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
 
@@ -148,14 +169,14 @@ export default function Home() {
           </section>
 
           <section className="metric-grid" aria-label="Daily overview">
-            <div className="metric-card metric-highlight"><div className="metric-icon"><Flame size={16} /></div><div><span>Signals today</span><strong>08</strong><small><b>+3</b> vs yesterday</small></div><div className="mini-bars"><i /><i /><i /><i /><i /><i /></div></div>
+            <div className="metric-card metric-highlight"><div className="metric-icon"><Flame size={16} /></div><div><span>Signals today</span><strong>{String(trendItems.length).padStart(2, "0")}</strong><small><b>{dataSource === "api" ? "Live" : "+3"}</b> {dataSource === "api" ? "from API" : "vs yesterday"}</small></div><div className="mini-bars"><i /><i /><i /><i /><i /><i /></div></div>
             <div className="metric-card"><div className="metric-icon cyan"><Sparkles size={16} /></div><div><span>Hot models</span><strong>12</strong><small><b>+18%</b> momentum</small></div><div className="metric-line"><i /><i /><i /><i /><i /><i /><i /><i /></div></div>
             <div className="metric-card"><div className="metric-icon violet"><FileText size={16} /></div><div><span>Research cuts</span><strong>04</strong><small><b>2</b> worth a deep read</small></div><div className="metric-ring"><span>68%</span></div></div>
             <div className="metric-card"><div className="metric-icon lime"><Users size={16} /></div><div><span>Source health</span><strong>96%</strong><small><b>All clear</b> · no gaps</small></div><div className="health-orb"><span /></div></div>
           </section>
 
           <div className="section-heading"><div><div className="section-kicker"><span className="section-number">01</span> DAILY SIGNALS</div><h2>Today’s AI trends</h2></div><div className="section-heading-actions"><button className="text-button"><Library size={14} /> View all signals <ArrowUpRight size={14} /></button><button className="filter-button"><Settings2 size={14} /> Customize</button></div></div>
-          <div className="category-tabs" role="tablist" aria-label="Trend categories">{categories.map((category) => <button key={category} className={selectedCategory === category ? "category-active" : ""} onClick={() => setSelectedCategory(category)}>{category}{category === "All" && <span>8</span>}</button>)}</div>
+          <div className="category-tabs" role="tablist" aria-label="Trend categories">{categories.map((category) => <button key={category} className={selectedCategory === category ? "category-active" : ""} onClick={() => setSelectedCategory(category)}>{category}{category === "All" && <span>{trendItems.length}</span>}</button>)}</div>
 
           <section className="dashboard-grid">
             <div className="trend-feed">{filteredTrends.length ? filteredTrends.map((trend) => <TrendCard key={trend.id} trend={trend} saved={saved.includes(trend.id)} onSave={() => toggleSave(trend.id)} />) : <div className="empty-state"><Search size={20} /><strong>No signals found</strong><span>Try another category or search term.</span><button onClick={() => { setQuery(""); setSelectedCategory("All"); }}>Clear filters</button></div>}</div>

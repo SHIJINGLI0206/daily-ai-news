@@ -1,9 +1,12 @@
 node_modules/
+.venv/
 .next/
 out/
 dist/
 coverage/
 *.tsbuildinfo
+data/
+backend/data/
 .DS_Store
 *.log
 
