@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+*.log
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Editors
+.vscode/
+.idea/
